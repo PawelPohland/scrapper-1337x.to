@@ -28,11 +28,11 @@ class Scrapper:
 
     min_keyword_length = 3
 
-    def __init__(self, base_url):
+    def __init__(self, base_url, selenium_driver_path):
         self.base_url = base_url if not base_url.endswith("/") \
             else base_url.rstrip("/")
 
-        self.search_scrapper = ScrapperSelenium()
+        self.search_scrapper = ScrapperSelenium(selenium_driver_path)
         self.category_scrapper = ScrapperRequests()
 
         self.html_parser = None  #  BeautifulSoup
@@ -191,6 +191,17 @@ class Scrapper:
             self.html_parser = BeautifulSoup(page_source, "html.parser")
             return self.parse_data(page_type="cat-or-sub")
 
+    # parse links from search results pages
+    # https://1337x.to/search/{KEYWORD}/{START_PAGE}/
+    # https://1337x.to/sort-search/{KEYWORD}/{SORT_TYPE}/{ASC|DESC}/{START_PAGE}/
+    # https://1337x.to/category-search/{KEYWORD}/{CATEGORY}/{START_PAGE}/
+    # https://1337x.to/sort-category-search/{KEYWORD}/{CATEGORY}/{SORT_TYPE}/{ASC|DESC}/{START_PAGE}/
+    def parse_search_results(self, url):
+        page_source = self.search_scrapper.get_source_page(url)
+        if page_source:
+            self.html_parser = BeautifulSoup(page_source, "html.parser")
+            return self.parse_data(page_type="search")
+
     # scrap data
     def scrap_data(self, params, pages_to_read = 1):
         data = []
@@ -201,35 +212,43 @@ class Scrapper:
             # build url based on given parameters
             self.get_data_url(params)
 
+            url = self.get_url(self.url_data["start_page"])
+            print(f"~ Scrapping page: {url}")
+
+            # scrap first page
             if self.url_data["url_type"] in ["cat", "sub"]:
-                url = self.get_url(self.url_data["start_page"])
-                print(f"~ Scrapping page: {url}")
-
-                # scrap first page
                 data += self.parse_category(url)
-
-                if not data:
-                    raise Exception(f"No data found for url '{self.url_data['url']}'")
-
-                # how many pages are available to scrap
-                pages_available = self.get_last_page_number()
-
-                if pages_available:
-                    last_page_to_read = self.url_data["start_page"] + pages_to_read
-                    if last_page_to_read > pages_available:
-                        last_page_to_read = pages_available
-
-                    for page_num in range(self.url_data["start_page"] + 1, last_page_to_read + 1, 1):
-                        url = self.get_url(page_num)
-                        print(f"~ Scrapping page: {url}")
-
-                        data += self.parse_category(url)
-
-                return data
             else:
-                # scrap search results pages
-                pass # for now
-                # TODO!
+                data += self.parse_search_results(url)
+
+            if not data:
+                raise Exception(f"No data found for url {url}")
+
+            # how many pages are available to scrap
+            pages_available = self.get_last_page_number()
+
+            if pages_available:
+                last_page_to_read = self.url_data["start_page"] + pages_to_read
+                if last_page_to_read > pages_available:
+                    last_page_to_read = pages_available
+
+                # scrap the rest
+                for page_num in range(self.url_data["start_page"] + 1, last_page_to_read + 1, 1):
+                    url = self.get_url(page_num)
+                    print(f"~ Scrapping page: {url}")
+
+                    curr_data = []
+
+                    if self.url_data["url_type"] in ["cat", "sub"]:
+                        curr_data = self.parse_category(url)
+                    else:
+                        curr_data = self.parse_search_results(url)
+
+                    if not curr_data:
+                        # just in case there's sth wrong with other pages
+                        break
+                    else:
+                        data += curr_data
         except Exception as error:
             print(f"Scrapper ~ error: ${error}")
         finally:
