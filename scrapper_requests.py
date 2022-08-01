@@ -4,7 +4,7 @@ from requests.exceptions import HTTPError
 class ScrapperRequests:
 
     def __init__(self):
-        session = requests.Session()
+        self.session = requests.Session()
 
     def get_source_page(self, url):
         page_source = None

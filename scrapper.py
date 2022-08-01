@@ -1,6 +1,9 @@
 from scrapper_selenium import ScrapperSelenium
 from scrapper_requests import ScrapperRequests
 
+from bs4 import BeautifulSoup
+
+import re
 import urllib.parse
 
 class Scrapper:
@@ -35,9 +38,6 @@ class Scrapper:
         self.html_parser = None  #  BeautifulSoup
         self.wrapper = None #  data + pagination
 
-        self.last_url_parsed = None
-        self.last_page_num = None
-
     # returns url based on given parameters
     # following urls are valid:
     # https://1337x.to/search/{KEYWORD}/{START_PAGE}/
@@ -47,13 +47,13 @@ class Scrapper:
     # https://1337x.to/category-search/{KEYWORD}/{CATEGORY}/{START_PAGE}/
     # https://1337x.to/sort-category-search/{KEYWORD}/{CATEGORY}/{SORT_TYPE}/{ASC|DESC}/{START_PAGE}/
     def get_data_url(self, params):
-        url = []
-
         try:
-            url.append(self.base_url)
+            self.url_data = {}
+            self.url_data["url"] = [self.base_url]
 
             if params.get("url_type", "unsupported") in Scrapper.url_types:
-                url.append(params["url_type"])
+                self.url_data["url_type"] = params["url_type"]
+                self.url_data["url"].append(params["url_type"])
             else:
                 raise Exception("Wrong 'url_type' value. Allowed: " +
                     f"'{','.join(Scrapper.url_types)}'")
@@ -69,14 +69,14 @@ class Scrapper:
                         raise Exception("'keyword' parameter has to be at least " +
                             f"{Scrapper.min_keyword_length} characters long!")
 
-                url.append(urllib.parse.quote(params["keyword"]))
+                self.url_data["url"].append(urllib.parse.quote(params["keyword"]))
             else:
                 raise Exception("'keyword' parameter is required!")
 
             if params["url_type"] in ["category-search", "sort-category-search"]:
                 if params.get("category", None):
                     if params["category"] in Scrapper.search_categories:
-                        url.append(params["category"])
+                        self.url_data["url"].append(params["category"])
                     else:
                         raise Exception("Wrong 'category' parameter. Allowed: " +
                             f"{','.join(Scrapper.search_categories)}")
@@ -91,8 +91,8 @@ class Scrapper:
                     if sort_type in Scrapper.sort_types:
                         sort_dir = params.get("sort_direction", None)
                         if sort_dir and sort_dir in Scrapper.sort_directions:
-                            url.append(sort_type)
-                            url.append(sort_dir)
+                            self.url_data["url"].append(sort_type)
+                            self.url_data["url"].append(sort_dir)
                         else:
                             raise Exception("Wrong 'sort_direction' parameter. " +
                                 f"Allowed: '{','.join(Scrapper.sort_directions)}'")
@@ -109,9 +109,128 @@ class Scrapper:
                 "are required for 'sort-search,category-search," +
                 "sort-category-search' urls!")
 
-            url.append(str(params.get("start_page", 0)))
-            url = '/'.join(url) + "/"
+            start_page = int(params.get("start_page", 1))
+            if start_page < 1:
+                start_page = 1
+
+            self.url_data["start_page"] = start_page
         except Exception as error:
             print(f"Scrapper ~ error: {error}")
+
+    # returns url for given page_num
+    def get_url(self, page_num):
+        url = self.url_data["url"][:]
+        url.append(str(page_num))
+        url = "/".join(url) + "/"
+
+        return url
+
+    # check if tag is the last pagination link
+    def is_last_pagination_link(self, tag):
+        #<li class="last"><a href="#">Last</a></li>
+        return tag.has_attr("class") and "last" in tag["class"]
+
+    # get last page number from pagination links
+    def get_last_page_number(self):
+        last_page_num = None
+
+        pagination = self.wrapper.find("div", {"class":"pagination"})
+
+        # pagination element may not exists
+        if pagination:
+            last_link = pagination.find(self.is_last_pagination_link)
+            if last_link:
+                link = last_link.find("a").get("href")
+                # href may look like this:
+                # /{URL_TYPE}/{KEYWORD}/{SORT_PARAMS}/{LAST_PAGE_NUM}/
+                numbers = re.findall(r"[\d]+", link)
+                if numbers:
+                    # last found number is last page number
+                    last_page_num = int(numbers[-1])
+
+        return last_page_num
+
+    # parse data from source page
+    def parse_data(self, page_type):
+        cls = "box-info-detail" if page_type == "search" else "featured-list"
+        self.wrapper = self.html_parser.find("div", { "class" : cls })
+
+        parsed_data = []
+
+        if self.wrapper:
+            table_rows = self.wrapper.find("tbody").find_all("tr")
+            for row in table_rows:
+                table_data = row.find_all("td")
+                data = {}
+
+                # first td of every tr = name and link; there are two links:
+                # icon and link - parse only last (second) link
+                link = table_data[Scrapper.table_cells["name"]].find_all("a")[-1]
+                data["name"] = link.text
+                data["link"] = f"{self.base_url}{link['href']}"
+
+                data["seeds"] = table_data[Scrapper.table_cells["seeds"]].string
+                data["leechers"] = table_data[Scrapper.table_cells["leeches"]].string
+                data["time"] = table_data[Scrapper.table_cells["date"]].string
+
+                # size table data may contain some other text as well
+                # so use separator then split by it and take the first element
+                size = table_data[Scrapper.table_cells["size"]].get_text("{sep}")
+                data["size"] = size.split("{sep}")[0]
+
+                parsed_data.append(data)
+
+        return parsed_data
+
+    # parse links from category/subcategory
+    # https://1337x.to/cat/{KEYWORD}/{START_PAGE}/
+    # https://1337x.to/sub/{KEYWORD}/{START_PAGE}/
+    def parse_category(self, url):
+        page_source = self.category_scrapper.get_source_page(url)
+        if page_source:
+            self.html_parser = BeautifulSoup(page_source, "html.parser")
+            return self.parse_data(page_type="cat-or-sub")
+
+    # scrap data
+    def scrap_data(self, params, pages_to_read = 1):
+        data = []
+
+        try:
+            pages_to_read = 1 if not pages_to_read else int(pages_to_read)
+
+            # build url based on given parameters
+            self.get_data_url(params)
+
+            if self.url_data["url_type"] in ["cat", "sub"]:
+                url = self.get_url(self.url_data["start_page"])
+                print(f"~ Scrapping page: {url}")
+
+                # scrap first page
+                data += self.parse_category(url)
+
+                if not data:
+                    raise Exception(f"No data found for url '{self.url_data['url']}'")
+
+                # how many pages are available to scrap
+                pages_available = self.get_last_page_number()
+
+                if pages_available:
+                    last_page_to_read = self.url_data["start_page"] + pages_to_read
+                    if last_page_to_read > pages_available:
+                        last_page_to_read = pages_available
+
+                    for page_num in range(self.url_data["start_page"] + 1, last_page_to_read + 1, 1):
+                        url = self.get_url(page_num)
+                        print(f"~ Scrapping page: {url}")
+
+                        data += self.parse_category(url)
+
+                return data
+            else:
+                # scrap search results pages
+                pass # for now
+                # TODO!
+        except Exception as error:
+            print(f"Scrapper ~ error: ${error}")
         finally:
-            return url
+            return data
