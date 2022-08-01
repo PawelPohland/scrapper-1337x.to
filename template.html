@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Data</title>
+<style>
+.scrapped-on {
+  background-color: goldenrod;
+  padding: 0 5px;
+  color: #fff;
+}
+table {
+  border-top: 1px solid #eee;
+  border-left: 1px solid #eee;
+  border-spacing: 0;
+  width: 100%;
+}
+table th {
+  display: none;
+}
+table th, table td {
+  border-bottom: 1px solid #eee;
+  border-right: 1px solid #eee;
+  padding: 5px;
+}
+table tr:nth-child(even) {
+  background-color: #f5f5f5;
+}
+table tr:nth-child(odd) {
+  background-color: #ddd;
+}
+table tr:hover {
+  background-color: #bbb;
+}
+</style>
+  </head>
+  <body>
+    <main>
+      <h1>Data scrapped on <span class="scrapped-on">{! info !}</span></h1>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Link</th>
+            <th>Time</th>
+            <th>Size</th>
+            <th>Seeds/Leechers</th>
+          </tr>
+        </thead>
+        <tbody>
+          {! data !}
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>
