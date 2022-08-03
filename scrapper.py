@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import re
 import urllib.parse
 
+
 class Scrapper:
 
     table_cells = {
@@ -21,10 +22,10 @@ class Scrapper:
     sort_directions = ["asc", "desc"]
 
     url_types = ["search", "sort-search", "category-search",
-    "sort-category-search", "cat", "sub"]
+                 "sort-category-search", "cat", "sub"]
 
     search_categories = ["Movies", "TV", "Games", "Music", "Apps",
-        "Documentaries", "Anime", "Other", "XXX"]
+                         "Documentaries", "Anime", "Other", "XXX"]
 
     min_keyword_length = 3
 
@@ -35,8 +36,8 @@ class Scrapper:
         self.search_scrapper = ScrapperSelenium(selenium_driver_path)
         self.category_scrapper = ScrapperRequests()
 
-        self.html_parser = None  #  BeautifulSoup
-        self.wrapper = None #  data + pagination
+        self.html_parser = None  # BeautifulSoup
+        self.wrapper = None  # data + pagination
 
     # returns url based on given parameters
     # following urls are valid:
@@ -56,20 +57,21 @@ class Scrapper:
                 self.url_data["url"].append(params["url_type"])
             else:
                 raise Exception("Wrong 'url_type' value. Allowed: " +
-                    f"'{','.join(Scrapper.url_types)}'")
+                                f"'{','.join(Scrapper.url_types)}'")
 
             if params.get("keyword", None):
                 if params["url_type"] == "cat":
                     if params["keyword"] not in Scrapper.search_categories:
                         raise Exception("Wrong 'keyword' for 'cat' url. " +
-                            f"Allowed: '{','.join(Scrapper.search_categories)}'")
+                                        f"Allowed: '{','.join(Scrapper.search_categories)}'")
 
                 if (params["url_type"] not in ["cat", "sub"] and
-                    len(params["keyword"]) < Scrapper.min_keyword_length):
-                        raise Exception("'keyword' parameter has to be at least " +
-                            f"{Scrapper.min_keyword_length} characters long!")
+                        len(params["keyword"]) < Scrapper.min_keyword_length):
+                    raise Exception("'keyword' parameter has to be at least " +
+                                    f"{Scrapper.min_keyword_length} characters long!")
 
-                self.url_data["url"].append(urllib.parse.quote(params["keyword"]))
+                self.url_data["url"].append(
+                    urllib.parse.quote(params["keyword"]))
             else:
                 raise Exception("'keyword' parameter is required!")
 
@@ -79,15 +81,15 @@ class Scrapper:
                         self.url_data["url"].append(params["category"])
                     else:
                         raise Exception("Wrong 'category' parameter. Allowed: " +
-                            f"{','.join(Scrapper.search_categories)}")
+                                        f"{','.join(Scrapper.search_categories)}")
                 else:
                     raise Exception("'category' parameter is required for " +
-                        f"'{params['url_type']}' url!")
+                                    f"'{params['url_type']}' url!")
 
             sort_type = params.get("sort_type", None)
             if sort_type:
                 if params["url_type"] in ["sort-search", "category-search",
-                    "sort-category-search"]:
+                                          "sort-category-search"]:
                     if sort_type in Scrapper.sort_types:
                         sort_dir = params.get("sort_direction", None)
                         if sort_dir and sort_dir in Scrapper.sort_directions:
@@ -95,19 +97,19 @@ class Scrapper:
                             self.url_data["url"].append(sort_dir)
                         else:
                             raise Exception("Wrong 'sort_direction' parameter. " +
-                                f"Allowed: '{','.join(Scrapper.sort_directions)}'")
+                                            f"Allowed: '{','.join(Scrapper.sort_directions)}'")
                     else:
                         raise Exception("Wrong 'sort_type' paramter. Allowed: " +
-                            f"'{','.join(Scrapper.sort_types)}'")
+                                        f"'{','.join(Scrapper.sort_types)}'")
                 else:
                     raise Exception("'sort_type' parameter is allowed only for " +
-                        "'sort-search,category-search,sort-category-search' urls!")
+                                    "'sort-search,category-search,sort-category-search' urls!")
 
             elif params["url_type"] in ["sort-search", "category-search",
-                    "sort-category-search"]:
+                                        "sort-category-search"]:
                 raise Exception("'sort_type' and 'sort_direction' parameters " +
-                "are required for 'sort-search,category-search," +
-                "sort-category-search' urls!")
+                                "are required for 'sort-search,category-search," +
+                                "sort-category-search' urls!")
 
             start_page = int(params.get("start_page", 1))
             if start_page < 1:
@@ -127,14 +129,14 @@ class Scrapper:
 
     # check if tag is the last pagination link
     def is_last_pagination_link(self, tag):
-        #<li class="last"><a href="#">Last</a></li>
+        # <li class="last"><a href="#">Last</a></li>
         return tag.has_attr("class") and "last" in tag["class"]
 
     # get last page number from pagination links
     def get_last_page_number(self):
         last_page_num = None
 
-        pagination = self.wrapper.find("div", {"class":"pagination"})
+        pagination = self.wrapper.find("div", {"class": "pagination"})
 
         # pagination element may not exists
         if pagination:
@@ -153,7 +155,7 @@ class Scrapper:
     # parse data from source page
     def parse_data(self, page_type):
         cls = "box-info-detail" if page_type == "search" else "featured-list"
-        self.wrapper = self.html_parser.find("div", { "class" : cls })
+        self.wrapper = self.html_parser.find("div", {"class": cls})
 
         parsed_data = []
 
@@ -165,7 +167,8 @@ class Scrapper:
 
                 # first td of every tr = name and link; there are two links:
                 # icon and link - parse only last (second) link
-                link = table_data[Scrapper.table_cells["name"]].find_all("a")[-1]
+                link = table_data[Scrapper.table_cells["name"]].find_all(
+                    "a")[-1]
                 data["name"] = link.text
                 data["link"] = f"{self.base_url}{link['href']}"
 
@@ -175,7 +178,8 @@ class Scrapper:
 
                 # size table data may contain some other text as well
                 # so use separator then split by it and take the first element
-                size = table_data[Scrapper.table_cells["size"]].get_text("{sep}")
+                size = table_data[Scrapper.table_cells["size"]].get_text(
+                    "{sep}")
                 data["size"] = size.split("{sep}")[0]
 
                 parsed_data.append(data)
@@ -203,7 +207,7 @@ class Scrapper:
             return self.parse_data(page_type="search")
 
     # scrap data
-    def scrap_data(self, params, pages_to_read = 1):
+    def scrap_data(self, params, pages_to_read=1):
         data = []
 
         try:

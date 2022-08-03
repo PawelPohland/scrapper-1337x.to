@@ -1,10 +1,14 @@
 import requests
 from requests.exceptions import HTTPError
 
+
 class ScrapperRequests:
 
     def __init__(self):
         self.session = requests.Session()
+
+    def __del__(self):
+        self.session.close()
 
     def get_source_page(self, url):
         page_source = None
@@ -22,5 +26,4 @@ class ScrapperRequests:
         except Exception as err:
             print(f"An error has occured: {err}")
         finally:
-            self.session.close()
             return page_source
