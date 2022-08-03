@@ -103,13 +103,13 @@ if __name__ == "__main__":
 
         # mark keywords in all links
         mark_keywords(keywords=["programming", "python", "django", "flask",
-            "javascript", "java script", "frontend", "backend", "fullstack",
-            "full-stack", "node.js", "react", "vue.js", "vue", "next.js",
-            "nextjs", "angular", "typescript", "mern", "mevn", "mean", "web", "css",
-            "php", "laravel", "sql", "mysql", "postgresql", "mongodb", "go",
-            "golang", "java", "data structures", "algorithms", "machine learning",
-            "data science", "api", "git", "github", "docker", "kubernetes",
-            "aws", "azure", "jira", "linux", "ubuntu"], data=data)
+                                "javascript", "java script", "frontend", "backend", "fullstack",
+                                "full-stack", "node.js", "react", "vue.js", "vue", "next.js",
+                                "nextjs", "angular", "typescript", "mern", "mevn", "mean", "web", "css",
+                                "php", "laravel", "sql", "mysql", "postgresql", "mongodb", "go",
+                                "golang", "java", "data structures", "algorithms", "machine learning",
+                                "data science", "api", "git", "github", "docker", "kubernetes",
+                                "aws", "azure", "jira", "linux", "ubuntu"], data=data)
 
         # write as a HTML file
         file = write_as_html(data)

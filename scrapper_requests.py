@@ -14,6 +14,7 @@ class ScrapperRequests:
             response.raise_for_status()
 
             page_source = response.text
+            response.close()
 
         except HTTPError as http_err:
             print(f"HTTP error occured: {http_err}")
@@ -21,4 +22,5 @@ class ScrapperRequests:
         except Exception as err:
             print(f"An error has occured: {err}")
         finally:
+            self.session.close()
             return page_source
